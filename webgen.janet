@@ -39,23 +39,11 @@
   (string/replace-all "${ROOT}/" (string/repeat "../" (- (nesting-levels path) 1)) str))
 
 (defn process-html
-  "Process the given HTML contents, applying the website's template and
-  applying variable substitution."
+  "Process the given HTML contents, applying the website's template."
   [template variables path contents]
   (substitute-variables variables path
     (string/replace "${CONTENTS}" contents
       template)))
-
-(defn process-markdown-file
-  "Process a markdown file. Return the resulting HTML."
-  [process-html path]
-  (process-html path (markdown-file-to-html path)))
-
-(defn process-file
-  "Process a file with the given contents processor. The process takes a file
-  path and the file's contents."
-  [process path]
-    (process path (filesystem/read-file path)))
 
 (defn process-files
   "Process the files in the source directory and write the results to the
@@ -72,10 +60,9 @@
     (def ext (path/ext src-filepath))
     (def processed-contents
       (match ext
-        ".css"       (process-file (partial substitute-variables variables) src-filepath)
-        ".html"      (process-file (partial process-html template variables) src-filepath)
-        ".md"        (process-markdown-file (partial process-html template variables) src-filepath)
-        ".markdown"  (process-markdown-file (partial process-html template variables) src-filepath)
+        ".css"  (substitute-variables  variables src-filepath (filesystem/read-file src-filepath))
+        ".html" (substitute-variables  variables src-filepath process-html template (filesystem/read-file src-filepath))
+        ".md"   (substitute-variables  variables src-filepath process-html template (markdown-file-to-html src-filepath))
         _ nil)) # nil means we copy the file as is.
     (var dst-filepath (string/replace src-dir build-dir src-filepath))
     (set dst-filepath
@@ -85,7 +72,7 @@
         _ dst-filepath))
     (if processed-contents
       (filesystem/write-file dst-filepath processed-contents)
-      (filesystem/copy-file src-filepath dst-filepath))))
+      (filesystem/copy-file  src-filepath dst-filepath))))
 
 (defn read-map-file
   "Read key-value pairs from a file. The file should be a text file with lines
